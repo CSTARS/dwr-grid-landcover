@@ -1,2 +1,7 @@
-_site/
-.sass-cache/
+ftp.nass.usda.gov
+dwr-dau-*
+v*.tar.gz
+2013_30m_cdls.*
+*~
+gdb/*/*/.bash_history
+gdb/*/*/.bashrc

@@ -11,30 +11,34 @@ create table class (
 );
 \copy class from nlcd_2006_class.csv with csv header
 
+
+
 create table xwalk (
  dau_id integer,
  dau varchar(8),
+ county_id integer,
+ county varchar(8),
  grid_id integer,
  dwr_id varchar(7),
  nlcd_id integer,
  nlcd_name text,
  count integer
 );
-\copy xwalk from xwalk_hist.csv with csv NULL '*'
+\copy xwalk(county_id,county,dau_id,dau,grid_id,dwr_id,nlcd_id,nlcd_name,count) from xwalk_hist.csv with csv NULL '*'
 
 create table grid_count as 
-select dwr_id,dau,sum(count) from xwalk group by dwr_id,dau;
+select dwr_id,dau,county,sum(count) from xwalk group by dwr_id,dau,county;
 
 -- The most simple table gives the fractional amount 
 -- of major designations for each grid/dau pair.
 create table nlcd_2006_major as 
 select 
-dwr_id,dau,major,
+dwr_id,dau,county,major,sum(count) as count,
 (sum(count)*1.0/sum)::decimal(6,2) as fraction 
 from xwalk 
 join class using (nlcd_id) 
-join grid_count using (dwr_id,dau) 
-group by dwr_id,dau,major,sum order by dwr_id,dau,major;
+join grid_count using (dwr_id,dau,county) 
+group by dwr_id,dau,county,major,sum order by dwr_id,dau,major;
 
 \copy (select dwr_id,dau,major,fraction from nlcd_2006_major) to ../land_cover/nlcd_2006_major.csv with csv header
 
@@ -64,12 +68,13 @@ wetlands decimal(6,2)
 -- of class designations for each grid/dau pair.
 create table nlcd_2006_class as 
 select 
-dwr_id,dau,class,
+dwr_id,dau,county,class,
+sum(count) as count,
 (sum(count)*1.0/sum)::decimal(6,2) as fraction 
 from xwalk 
 join class using (nlcd_id) 
-join grid_count using (dwr_id,dau) 
-group by dwr_id,dau,class,sum order by dwr_id,dau,class;
+join grid_count using (dwr_id,dau,county) 
+group by dwr_id,dau,county,class,sum order by dwr_id,dau,class;
 
 \copy (select dwr_id,dau,class,fraction from nlcd_2006_class) to ../land_cover/nlcd_2006_class.csv with csv header
 
@@ -77,13 +82,14 @@ group by dwr_id,dau,class,sum order by dwr_id,dau,class;
 
 create table nlcd_2006_class_ct as 
 select * from crosstab(
-'select dwr_id||'':''||dau,dwr_id,dau,class,fraction from nlcd_2006_class where dwr_id != ''no data'' and dau != ''no_data'' order by 1',
+'select dwr_id||'':''||dau,dwr_id,dau,county,class,fraction from nlcd_2006_class where dwr_id != ''no data'' and dau != ''no_data'' and county != ''no_data'' order by 1',
 'select distinct class from nlcd_2006_class order by 1'
 ) as 
 ct(
 dd text,
 dwr_id varchar(7),
 dau varchar(8),
+county varchar(8),
 "Barren Land (Rock/Sand/Clay)" decimal(6,2),
 "Cultivated Crops" decimal(6,2),
 "Deciduous Forest" decimal(6,2),
@@ -104,5 +110,5 @@ dau varchar(8),
 
 --with c as (select distinct class from nlcd_2006_class order by 1) select string_agg('"'||class||'"',',') from c;
 
-\copy (select dwr_id,dau,"Barren Land (Rock/Sand/Clay)","Cultivated Crops","Deciduous Forest","Developed High Intensity","Developed, Low Intensity","Developed, Medium Intensity","Developed, Open Space","Emergent Herbaceous Wetlands","Evergreen Forest","Grassland/Herbaceous","Mixed Forest","Open Water","Pasture/Hay","Perennial Ice/Snow","Shrub/Scrub","Woody Wetlands" from nlcd_2006_class_ct) to ../land_cover/nlcd_2006_class_ct.csv with csv header
+\copy (select dwr_id,dau,county,"Barren Land (Rock/Sand/Clay)","Cultivated Crops","Deciduous Forest","Developed High Intensity","Developed, Low Intensity","Developed, Medium Intensity","Developed, Open Space","Emergent Herbaceous Wetlands","Evergreen Forest","Grassland/Herbaceous","Mixed Forest","Open Water","Pasture/Hay","Perennial Ice/Snow","Shrub/Scrub","Woody Wetlands" from nlcd_2006_class_ct) to ../land_cover/nlcd_2006_class_ct.csv with csv header
 

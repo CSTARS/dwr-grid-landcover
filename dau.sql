@@ -15,11 +15,11 @@ urban boolean,
 nv boolean,
 water boolean);
 
-update dwr_grid_info set dau_co_id=trim(both from dau_co_id);
-update dwr_grid_info set grid_id=trim(both from grid_id);
-
 -- import data
 \set foo `cd /home/quinn/dwr-grid-landcover/dwr_grid_info; for i in DAUCo*.csv; do echo $i; grep -v '#' $i | psql -d quinn -c 'copy dauco.dwr_grid_info from stdin with csv header'; done`
+
+update dwr_grid_info set dau_co_id=trim(both from dau_co_id);
+update dwr_grid_info set grid_id=trim(both from grid_id);
 
 create table dwr_class (
  major text primary key,
@@ -63,19 +63,19 @@ Wetlands float
 
 create table nlcd_grid_info as 
 select 
-dau||lpad((county::integer/2)+1,2,'0') as Dau_Co_ID,
+dau||lpad(((county::integer/2)+1)::text,2,'0') as Dau_Co_ID,
 dwr_id as Grid_id,
 sum*30*30 as DAU_CoGrdArea,
 ag*30*30 as AgGrdArea,
 urban*30*30 as UrGrdArea,
-nv*30*30 as NVGridArea,
-water*30*30 as WSGridArea,
-wetlands*30*30 as WetGridArea,
-ag is not null as Ag, 
-urban is not null as Urban, 
-nv is not null as NV, 
-water is not null as Water, 
-wetlands is not null as Wetlands 
+nv*30*30 as NVGrdArea,
+water*30*30 as WSGrdArea,
+wetlands*30*30 as WetGrdArea,
+CASE WHEN (ag is not null) THEN 1 ELSE 0 END as Ag, 
+CASE WHEN (urban is not null) THEN 1 ELSE 0 END as Urban, 
+CASE WHEN (nv is not null) THEN 1 ELSE 0 END as NV, 
+CASE WHEN (water is not null) THEN 1 ELSE 0 END as Water, 
+CASE WHEN (wetlands is not null) THEN 1 ELSE 0 END as Wetlands 
 from nlcd_2006_dwr_ct 
 join nlcd.grid_count 
 using (dau,county,dwr_id);
@@ -93,7 +93,14 @@ where o is null or n is null
 order by coalesce(o.dau_cogrdarea,n.dau_cogrdarea) desc,dau_co_id,o.grid_id,n.grid_id; 
 
 create view dwr_high_missing as 
-select 'dwr' as source,*,0 as wetlands from dwr_grid_info where grid_id in ('143_86','86_70','201_115') 
+select 'dwr' as source,dau_co_id,
+grid_id,dau_cogrdarea,aggrdarea,urgrdarea,nvgrdarea,wsgrdarea,0 as wetgrdarea,
+CASE WHEN (ag is not null) THEN 1 ELSE 0 END as Ag, 
+CASE WHEN (urban is not null) THEN 1 ELSE 0 END as Urban, 
+CASE WHEN (nv is not null) THEN 1 ELSE 0 END as NV, 
+CASE WHEN (water is not null) THEN 1 ELSE 0 END as Water, 
+0 as Wetlands 
+from dwr_grid_info where grid_id in ('143_86','86_70','201_115') 
 union
 select 'nlcd',* from nlcd_grid_info where grid_id in ('143_86','86_70','201_115') 
 order by grid_id,dau_co_id;

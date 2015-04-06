@@ -12,7 +12,6 @@ create table class (
 \copy class from nlcd_2006_class.csv with csv header
 
 
-
 create table xwalk (
  dau_id integer,
  dau varchar(8),
@@ -108,7 +107,7 @@ county varchar(8),
 "Woody Wetlands" decimal(6,2)
 );
 
---with c as (select distinct class from nlcd_2006_class order by 1) select string_agg('"'||class||'"',',') from c;
+--with c as (select distinct class from nlcd_2006_class order by 1) select string_agg('"'|0|class||'"',',') from c;
 
 \copy (select dwr_id,dau,county,"Barren Land (Rock/Sand/Clay)","Cultivated Crops","Deciduous Forest","Developed High Intensity","Developed, Low Intensity","Developed, Medium Intensity","Developed, Open Space","Emergent Herbaceous Wetlands","Evergreen Forest","Grassland/Herbaceous","Mixed Forest","Open Water","Pasture/Hay","Perennial Ice/Snow","Shrub/Scrub","Woody Wetlands" from nlcd_2006_class_ct) to ../land_cover/nlcd_2006_class_ct.csv with csv header
 

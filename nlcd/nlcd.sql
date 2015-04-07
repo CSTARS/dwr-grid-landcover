@@ -43,7 +43,7 @@ group by dwr_id,dau,county,major,sum order by dwr_id,dau,major;
 
 create table nlcd_2006_major_ct as 
 select * from crosstab(
-'select dwr_id||'':''||dau,dwr_id,dau,major,fraction from nlcd_2006_major where dwr_id != ''no data'' and dau != ''no_data'' order by 1',
+'select dwr_id||'':''||dau,dwr_id,dau,major,fraction from nlcd_2006_major where dwr_id is not null and dau is not null order by 1',
 'select distinct major from nlcd_2006_major order by 1'
 ) as 
 ct(

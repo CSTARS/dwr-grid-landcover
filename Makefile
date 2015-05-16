@@ -1,5 +1,6 @@
 #! /usr/bin/make -f
 
+
 # Are we currently Running Grass?
 ifndef GISRC
   $(error Must be running in GRASS)
@@ -24,20 +25,32 @@ ${dau.shp}:${tgz}
 	[[ -f ${tgz} ]] || wget ${git}/${tgz};\
 	tar -xzf ${tgz};
 
+caco.shp:=california-counties-1.0.0/shp
+${caco.shp}:version:=v1.0.0
+${caco.shp}:tgz:=v1.0.0.tar.gz
+${caco.shp}:git:=https://github.com/CSTARS/california-counties/archive
+${caco.shp}:${tgz}
+	[[ -f ${tgz} ]] || wget ${git}/${tgz};\
+	tar -xzf ${tgz};
+
+
 # California Data
-${ca.vect}:=${GISDBASE}/california/dwr/vector
+ca.vect:=${GISDBASE}/california/dwr/vector
 
 ${ca.vect}/detailed_analyis_units:${dau.shp}/shp/detailed_analysis_units.shp
 	v.in.ogr dsn=${dau.shp} output=detailed_analysis_units layer=detailed_analysis_units type=boundary
 # g.mapset quinn; v.in.ogr dsn=. output=detailed_analysis_units layer=detailed_analysis_units type=boundary 
 
+${ca.vect}/california-counties: ${caco.shp}
+	v.in.ogr dsn=${caco.shp} output=counties layer=california_counties type=boundary
+
+PG:=psql -d quinn
+# Postgres input
+california-counties.db:${caco.shp}
+	 shp2pgsql -s3310 -g boundary -I ${caco.shp}/california_counties.shp dauco.california_counties | ${PG}
+
 ${ca.vect}/dwr-grid:${dwr-grid}/shp/dwr_grid.shp
 	v.in.ogr dsn=${dau.shp} output=detailed_analysis_units layer=detailed_analysis_units type=boundary
-
-${ca.vect}/california-counties:
-	v.in.ogr dsn=${dau.shp} output=detailed_analysis_units layer=detailed_analysis_units type=boundary
-# cd california-counties-1.0.0
-# g.mapset quinn; v.in.ogr dsn=. output=counties layer=california_counties type=boundary
 
 # Conterminous Data
 
@@ -47,7 +60,7 @@ ${ca.vect}/california-counties:
 mirror::
 	wget --mirror ${2013.cdl.url} ${2013.cult.url}
 
-${us.rast}:=${GISDBASE}/conterminous_us/dwr/cellhd
+us.rast:=${GISDBASE}/conterminous_us/dwr/cellhd
 
 ${us.rast}/2013_30m_cdls: 2013_30m_cdls.img
 	r.in.gdal input=2013_30m_cdls.img output=2013_30m_cdls -e

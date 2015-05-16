@@ -63,6 +63,12 @@ Water float,
 Wetlands float
 );
 
+update nlcd_2006_dwr_ct set ag=0 where ag is null;
+update nlcd_2006_dwr_ct set nv=0 where nv is null;
+update nlcd_2006_dwr_ct set urban=0 where urban is null;
+update nlcd_2006_dwr_ct set water=0 where water is null;
+update nlcd_2006_dwr_ct set wetlands=0 where wetlands is null;
+
 create table nlcd_grid_info as 
 select 
 dau||lpad(((county::integer/2)+1)::text,2,'0') as Dau_Co_ID,
@@ -73,59 +79,17 @@ urban*30*30 as UrGrdArea,
 nv*30*30 as NVGrdArea,
 water*30*30 as WSGrdArea,
 wetlands*30*30 as WetGrdArea,
-CASE WHEN (ag is not null) THEN 1 ELSE 0 END as Ag, 
-CASE WHEN (urban is not null) THEN 1 ELSE 0 END as Urban, 
-CASE WHEN (nv is not null) THEN 1 ELSE 0 END as NV, 
-CASE WHEN (water is not null) THEN 1 ELSE 0 END as Water, 
-CASE WHEN (wetlands is not null) THEN 1 ELSE 0 END as Wetlands 
+CASE WHEN (ag !=0 ) THEN 1 ELSE 0 END as Ag, 
+CASE WHEN (urban != 0 ) THEN 1 ELSE 0 END as Urban, 
+CASE WHEN (nv != 0) THEN 1 ELSE 0 END as NV, 
+CASE WHEN (water != 0) THEN 1 ELSE 0 END as Water, 
+CASE WHEN (wetlands != 0) THEN 1 ELSE 0 END as Wetlands 
 from nlcd_2006_dwr_ct 
 join nlcd.grid_count 
 using (dau,county,dwr_id);
 
-create or replace view missing as 
-select 
-coalesce(o.grid_id,n.grid_id),
-coalesce(o.dau_co_id,n.dau_co_id) as dau_co_id,
-coalesce(o.dau_cogrdarea,n.dau_cogrdarea) as area,
-o is not null as dwr,
-n is not null as nlcd
-from dwr_grid_info o 
-full outer join nlcd_grid_info n on (o.dau_co_id::integer=n.dau_co_id::integer and o.grid_id=n.grid_id) 
-where o is null or n is null 
-order by coalesce(o.dau_cogrdarea,n.dau_cogrdarea) desc,dau_co_id,o.grid_id,n.grid_id; 
-
-create view dwr_high_missing as 
-select 'dwr' as source,dau_co_id,
-grid_id,dau_cogrdarea,aggrdarea,urgrdarea,nvgrdarea,wsgrdarea,0 as wetgrdarea,
-CASE WHEN (ag is not null) THEN 1 ELSE 0 END as Ag, 
-CASE WHEN (urban is not null) THEN 1 ELSE 0 END as Urban, 
-CASE WHEN (nv is not null) THEN 1 ELSE 0 END as NV, 
-CASE WHEN (water is not null) THEN 1 ELSE 0 END as Water, 
-0 as Wetlands 
-from dwr_grid_info where grid_id in ('143_86','86_70','201_115') 
-union
-select 'nlcd',* from nlcd_grid_info where grid_id in ('143_86','86_70','201_115') 
-order by grid_id,dau_co_id;
-
-create view tots as 
-select 'dwr' as source,
-sum(dau_cogrdarea) as total,
-sum(aggrdarea) as ag,
-sum(urgrdarea) as urban,
-sum(nvgrdarea) as nv,
-sum(wsgrdarea) as ws 
-from dwr_grid_info 
-union select 'nlcd' as source,
-sum(dau_cogrdarea) as total,
-sum(aggrdarea) as ag,
-sum(urgrdarea) as urban,
-sum(nvgrdarea) as nv,
-sum(wsgrdarea) as ws 
-from nlcd_grid_info ; 
-
-create view dau_co_id_tots as 
+create or replace view dau_co_id_tots as 
 with d as (select 'dwr' as source,
-
 dau_co_id,
 sum(dau_cogrdarea) as total,
 sum(aggrdarea) as ag,
@@ -141,20 +105,22 @@ sum(dau_cogrdarea) as total,
 sum(aggrdarea) as ag,
 sum(urgrdarea) as urban,
 sum(nvgrdarea) as nv,
-sum(wsgrdarea) as ws 
+sum(wetgrdarea) as wet,
+sum(wsgrdarea) as ws
 from nlcd_grid_info 
 group by dau_co_id)
 select coalesce(d.dau_co_id,n.dau_co_id) as dau_co_id,
-d.total as dwr_total,
-d.ag as dwr_ag,
-d.urban as dwr_urban,
-d.nv as dwr_nv,
-d.ws as dwr_ws,
-n.total as nlcd_total,
-n.ag as nlcd_ag,
-n.urban as nlcd_urban,
-n.nv as nlcd_nv,
-n.ws as nlcd_ws
+coalesce((d.total/4046.86),0)::decimal(8,1) as dwr_total,
+coalesce((d.ag/4046.86),0)::decimal(8,1) as dwr_ag,
+coalesce((d.urban/4046.86),0)::decimal(8,1) as dwr_urban,
+coalesce((d.nv/4046.86),0)::decimal(8,1) as dwr_nv,
+coalesce((d.ws/4046.86),0)::decimal(8,1) as dwr_ws,
+coalesce((n.total/4046.86),0)::decimal(8,1) as nlcd_total,
+coalesce((n.ag/4046.86),0)::decimal(8,1) as nlcd_ag,
+coalesce((n.nv/4046.86),0)::decimal(8,1) as nlcd_nv,
+coalesce((n.urban/4046.86),0)::decimal(8,1) as nlcd_urban,
+coalesce((n.wet/4046.86),0)::decimal(8,1) as nlcd_wet,
+coalesce((n.ws/4046.86),0)::decimal(8,1) as nlcd_ws
 from d full outer join n using (dau_co_id) order by 1;
 
 create view totals as 
@@ -175,4 +141,28 @@ from nlcd_grid_info ;
 
 
 -- To Get the files...
--- 
+-- for d in `psql -A -t -d quinn -c 'select distinct dau_co_id from dauco.nlcd_grid_info'`; do echo $d; psql -d quinn -c "\COPY (select * from dauco.nlcd_grid_info where dau_co_id='$d') to nlcd_grid_info/DAUCo${d}GA.csv with csv header"; done
+
+-- Compare to vector data
+create materialized view dau_co_vect as 
+select 
+ c.name as county,c.ansi as fips,
+ dau_code,dau_name,
+ sum(st_area(st_intersection(c.boundary,d.boundary))) as area 
+from california_counties c 
+join detailed_analysis_units d 
+on st_intersects(c.boundary,d.boundary) 
+group by 1,2,3,4;
+
+create or replace view dwr_list as 
+select 
+'California'::text as "State",
+dau_code as "DAU_Number",dau_name as "DAU_Name",
+lpad(((fips::integer/2)+1)::text,2,'0') as "Co_Number",
+county as "Co_Name",
+dau_code||lpad(((fips::integer/2)+1)::text,2,'0') as dau_co_id,
+dau_code||'_'||county as "DAU_County",
+(area*0.000247105381)::integer as acres 
+from dau_co_vect where (area*0.000247105381)::integer > 0
+and dau_code is not null;
+

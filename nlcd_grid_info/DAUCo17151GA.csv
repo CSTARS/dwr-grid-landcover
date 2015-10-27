@@ -1,0 +1,4 @@
+dau_co_id,grid_id,dau_cogrdarea,aggrdarea,urgrdarea,nvgrdarea,wsgrdarea,wetgrdarea,ag,urban,nv,water,wetlands
+17151,86_69,57600,35100,22500,0,0,0,1,1,0,0,0
+17151,87_68,898200,688500,142200,0,0,67500,1,1,0,0,1
+17151,87_69,1981800,1639800,159300,41400,0,141300,1,1,1,0,1
